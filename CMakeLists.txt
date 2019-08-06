@@ -41,20 +41,18 @@ add_executable(${PROJECT_NAME}
     server/scanserver.cpp
     server/scanner.cpp
     server/scanjob.cpp
-    server/scannerpage.cpp
     sanecpp/sanecpp.cpp
     basic/uuid.cpp
     basic/dictionary.cpp
     basic/fdbuf.cpp
+    basic/xml.cpp
     web/httpserver.cpp
-    web/webpage.cpp
     imageformats/imageencoder.cpp
     imageformats/jpegencoder.cpp
     imageformats/pdfencoder.cpp
     imageformats/pngencoder.cpp
     zeroconf/mdnspublisher.cpp
-    zeroconf/hotplugnotifier.cpp
-)
+    zeroconf/hotplugnotifier.cpp)
 target_link_libraries(
     ${PROJECT_NAME}
     Threads::Threads

@@ -35,6 +35,7 @@ class ScanServer : public HttpServer
 {
 public:
     ScanServer(int argc, char** argv);
+    void writeServerXML(std::ostream& os);
     bool run();
 
 protected:

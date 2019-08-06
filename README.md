@@ -2,9 +2,8 @@
 
 A SANE WebScan frontend that supports Apple's AirScan protocol.
 Scanners are detected automatically, and published through mDNS.
-Though images may be acquired and transferred
-in JPEG, PNG, and PDF/raster format through a simple web interface,
-AirSane's intended purpose is to be used with AirScan/eSCL clients such as
+*This version of AirSane publishes the AirScan/eSCL protocol only*, therefore
+it's intended purpose is to be used with AirScan/eSCL clients such as
 Apple's Image Capture.
 
 Images are encoded on-the-fly during acquisition, keeping memory/storage
@@ -36,7 +35,7 @@ The Mopria Scanner App may be used to scan from AirSane scanners.
 sudo apt install libsane-dev libjpeg-dev libpng-dev
 sudo apt install libavahi-client-dev libusb-1.*-dev
 sudo apt install git cmake g++
-git clone https://github.com/SimulPiscator/AirSane.git
+git clone https://github.com/RemcodM/AirSane.git
 mkdir AirSane-build && cd AirSane-build
 cmake ../AirSane
 make

@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "scanner.h"
 #include "scanjob.h"
-#include "scannerpage.h"
+#include "basic/xml.h"
 #include "zeroconf/hotplugnotifier.h"
 
 ScanServer::ScanServer(int argc, char** argv)
@@ -192,69 +192,49 @@ bool ScanServer::run()
     return ok;
 }
 
-namespace {
-struct Homepage : WebPage
-{
-    const ScannerList& mScanners;
-    Homepage(const ScannerList& scanners) : mScanners(scanners) {}
-    void onRender() override {
-        out() << heading(1).addText(title()) << std::endl;
-        out() << heading(2).addText("Scanners");
-        if(mScanners.empty()) {
-            out() << paragraph().addText("No scanners available");
-        } else {
-            list scannersList;
-            for(const auto& s : mScanners) {
-                auto name = s.second ? s.second->name() : s.first->makeAndModel();
-                scannersList.addItem(anchor(s.first->uri()).addText(name));
-                scannersList.addContent("\n");
-            }
-            out() << scannersList << std::endl;
+void ScanServer::writeServerXML(std::ostream& os) {
+    os <<
+       "<?xml version='1.0' encoding='UTF-8'?>\r\n"
+       "<airsane:Server"
+       " xmlns:airsane='http://heliumnet.nl/schemas/airsane/2019/08'"
+       " xmlns:pwg='http://www.pwg.org/schemas/2010/12/sm'"
+       " xmlns:scan='http://schemas.hp.com/imaging/escl/2011/05/03'>\r\n";
+    os << "<airsane:Version>\r\n";
+    os << "<airsane:Date>" << __DATE__ << "</airsane:Date>\r\n";
+    os << "<airsane:Time>" << __TIME__ << "</airsane:Time>\r\n";
+    os << "<airsane:CommitHash>" << GIT_COMMIT_HASH << "</airsane:CommitHash>\r\n";
+    os << "<airsane:Branch>" << GIT_BRANCH << "</airsane:Branch>\r\n";
+    os << "<airsane:Revision>" << GIT_REVISION_NUMBER << "</airsane:Revision>\r\n";
+    os << "</airsane:Version>\r\n";
+    os << "<airsane:Devices>\r\n";
+    for(const auto& s : mScanners) {
+        os << "<airsane:Device>\r\n";
+        os << "<pwg:Version>2.0</pwg:Version>\r\n";
+        os << "<pwg:MakeAndModel>" << xmlEscape(s.first->makeAndModel()) << "</pwg:MakeAndModel>\r\n";
+        os << "<scan:UUID>" << xmlEscape(s.first->uuid()) << "</scan:UUID>\r\n";
+        os << "<airsane:Uri>" << xmlEscape(s.first->uri()) << "</airsane:Uri>\r\n";
+        if (s.second) {
+            os << "<airsane:Name>" << xmlEscape(s.first->makeAndModel()) << "</airsane:Name>\r\n";
         }
-        out() << heading(2).addText("Build");
-        list version;
-        version.addItem(paragraph().addText("date: " __DATE__ ", " __TIME__));
-        version.addContent("\n");
-        version.addItem(paragraph().addText(
-          "commit: " GIT_COMMIT_HASH
-          " (branch " GIT_BRANCH
-          ", revision " GIT_REVISION_NUMBER ")"
-        ));
-        version.addContent("\n");
-        out() << version << std::endl;
-
-        out() << heading(2).addText("Server Maintenance");
-        list maintenance;
-        maintenance.addItem(anchor("/reset").addText("Reset"));
-        maintenance.addContent("\n");
-        out() << maintenance << std::endl;
+        os << "</airsane:Device>\r\n";
     }
-};
+    os << "</airsane:Devices>\r\n";
+    os << "</airsane:Server>\r\n";
 }
 
 void ScanServer::onRequest(const Request& request, Response& response)
 {
     if(request.uri() == "/") {
         response.setStatus(HttpServer::HTTP_OK);
-        response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/html");
-        Homepage(mScanners)
-                .setTitle("AirSane Server on " + hostname())
-                .render(request, response);
+        response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
+        writeServerXML(response.send());
+        return;
     }
-    else if(request.uri() == "/reset") {
+    else if(request.uri() == "/reset" && request.method() == HttpServer::HTTP_POST) {
         response.setStatus(HttpServer::HTTP_OK);
-        response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/html");
-        response.setHeader(HttpServer::HTTP_HEADER_REFRESH, "2; url=/");
-        struct : WebPage
-        {
-          void onRender() override {
-            out() << heading(1).addText(title()) << std::endl;
-            out() << paragraph().addText("You will be redirected to the main page in a few seconds.") << std::endl;
-          }
-        } resetpage;
-        resetpage.setTitle("Resetting AirSane Server on " + hostname() + "...")
-                 .render(request, response);
+        response.sendWithContent("");
         this->terminate(SIGHUP);
+        return;
     }
     for(auto& s : mScanners) {
         if(request.uri().find(s.first->uri()) == 0) {
@@ -275,9 +255,8 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
     response.setStatus(HttpServer::HTTP_OK);
     std::string res = request.uri().substr(s.first->uri().length());
     if(res.empty() || res == "/") {
-        response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/html");
-        auto name = s.second ? s.second->name() : s.first->makeAndModel();
-        ScannerPage(*s.first).setTitle(name + " on " + hostname()).render(request, response);
+        response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
+        s.first->writeScannerStatusXml(response.send());
         return;
     }
     if(res == "/ScannerCapabilities" && request.method() == HttpServer::HTTP_GET) {

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xs:schema targetNamespace="http://heliumnet.nl/schemas/airsane/2019/08"
+           xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm"
+           xmlns:scan="http://schemas.hp.com/imaging/escl/2011/05/03"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <xs:import namespace="http://www.pwg.org/schemas/2010/12/sm" />
+    <xs:import namespace="http://schemas.hp.com/imaging/escl/2011/05/03" />
+
+    <xs:element name="Server">
+        <xs:complexType>
+            <xs:all>
+                <xs:element ref="Version" />
+                <xs:element ref="Devices" />
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Version">
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="Date" type="xs:string"/>
+                <xs:element name="Time" type="xs:string"/>
+                <xs:element name="CommitHash" type="xs:string"/>
+                <xs:element name="Branch" type="xs:string"/>
+                <xs:element name="Revision" type="xs:string"/>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Devices">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="Device" maxOccurs="unbounded" />
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Device">
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="Name" type="xs:string"/>
+                <xs:element name="Uri" type="xs:string"/>
+                <xs:element ref="pwg:Version" />
+                <xs:element ref="pwg:MakeAndModel" />
+                <xs:element ref="scan:UUID" />
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
