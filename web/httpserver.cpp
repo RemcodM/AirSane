@@ -41,6 +41,7 @@ const char* HttpServer::HTTP_GET = "GET";
 const char* HttpServer::HTTP_POST = "POST";
 const char* HttpServer::HTTP_DELETE = "DELETE";
 // header field names are compared in lower case
+const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
 const char* HttpServer::HTTP_HEADER_CONTENT_TYPE = "content-type";
 const char* HttpServer::HTTP_HEADER_CONTENT_LENGTH = "content-length";
 const char* HttpServer::HTTP_HEADER_LOCATION = "location";

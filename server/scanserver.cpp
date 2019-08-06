@@ -32,11 +32,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ScanServer::ScanServer(int argc, char** argv)
     : mDoRun(true), mHotplug(true), mAnnounce(true), mLocalonly(true)
 {
-    std::string port, interface, accesslog, hotplug, announce, localonly, debug;
+    std::string port, interface, accesslog, hotplug, announce, localonly, debug, cross_origin;
     struct { const std::string name, def, info; std::string& value; } options[] = {
     { "listen-port", "8090", "listening port", port },
     { "interface", "", "listen on named interface only", interface },
     { "access-log", "", "HTTP access log, - for stdout", accesslog },
+    { "cross-origin", "", "address to enable cross origin access for", cross_origin },
     { "hotplug", "true", "reload scanner list on hotplug event", hotplug },
     { "mdns-announce", "true", "announce scanners via mDNS (avahi)", announce },
     { "local-scanners-only", "true", "ignore SANE network scanners", localonly },
@@ -70,6 +71,11 @@ ScanServer::ScanServer(int argc, char** argv)
     if(debug != "true")
         std::clog.rdbuf(nullptr);
     sanecpp::log.rdbuf(std::clog.rdbuf());
+
+    mCrossOrigin = "";
+    if (!cross_origin.empty()) {
+        mCrossOrigin = cross_origin;
+    }
 
     mHotplug = (hotplug == "true");
     mAnnounce = (announce == "true");
@@ -226,12 +232,14 @@ void ScanServer::onRequest(const Request& request, Response& response)
 {
     if(request.uri() == "/") {
         response.setStatus(HttpServer::HTTP_OK);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
         writeServerXML(response.send());
         return;
     }
     else if(request.uri() == "/reset" && request.method() == HttpServer::HTTP_POST) {
         response.setStatus(HttpServer::HTTP_OK);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         response.sendWithContent("");
         this->terminate(SIGHUP);
         return;
@@ -256,16 +264,19 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
     std::string res = request.uri().substr(s.first->uri().length());
     if(res.empty() || res == "/") {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerStatusXml(response.send());
         return;
     }
     if(res == "/ScannerCapabilities" && request.method() == HttpServer::HTTP_GET) {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerCapabilitiesXml(response.send());
         return;
     }
     if(res == "/ScannerStatus" && request.method() == HttpServer::HTTP_GET) {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerStatusXml(response.send());
         return;
     }
@@ -275,6 +286,7 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
         std::shared_ptr<ScanJob> job = s.first->createJobFromScanSettingsXml(request.content(), autoselectFormat);
         if(job) {
             response.setStatus(HttpServer::HTTP_CREATED);
+            response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
             response.setHeader(HttpServer::HTTP_HEADER_LOCATION, job->uri());
             response.send();
             return;
@@ -288,6 +300,7 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
     res = res.substr(1);
     size_t pos = res.find('/');
     if(pos > res.length() && request.method() == HttpServer::HTTP_DELETE && s.first->cancelJob(res)) {
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         response.send();
         return;
     }
@@ -299,6 +312,7 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
                 response.send();
             } else {
                 if(job->beginTransfer()) {
+                    response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
                     response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, job->documentFormat());
                     response.setHeader(HttpServer::HTTP_HEADER_TRANSFER_ENCODING, "chunked");
                     job->finishTransfer(response.send());

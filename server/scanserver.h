@@ -49,6 +49,7 @@ private:
     std::filebuf mLogfile;
     bool mAnnounce, mLocalonly, mHotplug;
     bool mDoRun;
+    std::string mCrossOrigin;
 };
 
 #endif // SCANSERVER_H
