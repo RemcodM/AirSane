@@ -363,8 +363,8 @@ void ScanJob::Private::abortTransfer()
 {
     if(atomicTransition(processing, pending)) {
         mStateReason = PWG_NONE;
-        mpSession.reset();
     }
+    mpSession.reset();
 }
 
 ScanJob &ScanJob::finishTransfer(std::ostream &os)

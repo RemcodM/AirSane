@@ -230,18 +230,29 @@ void ScanServer::writeServerXML(std::ostream& os) {
 
 void ScanServer::onRequest(const Request& request, Response& response)
 {
-    if(request.uri() == "/") {
+    if(request.uri() == "/" && request.method() == HttpServer::HTTP_GET){
         response.setStatus(HttpServer::HTTP_OK);
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
         writeServerXML(response.send());
         return;
-    }
-    else if(request.uri() == "/reset" && request.method() == HttpServer::HTTP_POST) {
+    } else if(request.uri() == "/" && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "GET");
+        response.send();
+        return;
+    } else if(request.uri() == "/reset" && request.method() == HttpServer::HTTP_POST) {
         response.setStatus(HttpServer::HTTP_OK);
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
-        response.sendWithContent("");
+        response.send();
         this->terminate(SIGHUP);
+        return;
+    } else if(request.uri() == "/reset" && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "POST");
+        response.send();
         return;
     }
     for(auto& s : mScanners) {
@@ -262,22 +273,37 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
 {
     response.setStatus(HttpServer::HTTP_OK);
     std::string res = request.uri().substr(s.first->uri().length());
-    if(res.empty() || res == "/") {
+    if((res.empty() || res == "/") && request.method() == HttpServer::HTTP_GET) {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerStatusXml(response.send());
         return;
-    }
-    if(res == "/ScannerCapabilities" && request.method() == HttpServer::HTTP_GET) {
+    } else if((res.empty() || res == "/") && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "GET");
+        response.send();
+        return;
+    } else if(res == "/ScannerCapabilities" && request.method() == HttpServer::HTTP_GET) {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerCapabilitiesXml(response.send());
         return;
-    }
-    if(res == "/ScannerStatus" && request.method() == HttpServer::HTTP_GET) {
+    } else if(res == "/ScannerCapabilities" && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "GET");
+        response.send();
+    } else if(res == "/ScannerStatus" && request.method() == HttpServer::HTTP_GET) {
         response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, "text/xml");
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         s.first->writeScannerStatusXml(response.send());
+        return;
+    } else if(res == "/ScannerStatus" && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "GET");
+        response.send();
         return;
     }
     const std::string ScanJobsDir = "/ScanJobs";
@@ -287,10 +313,18 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
         if(job) {
             response.setStatus(HttpServer::HTTP_CREATED);
             response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+            response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_EXPOSE_HEADERS, HttpServer::HTTP_HEADER_LOCATION);
+            response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS, HttpServer::HTTP_HEADER_LOCATION);
             response.setHeader(HttpServer::HTTP_HEADER_LOCATION, job->uri());
             response.send();
             return;
         }
+    } else if(res == ScanJobsDir && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "POST");
+        response.send();
+        return;
     }
     if(res.find(ScanJobsDir) != 0)
         return;
@@ -299,30 +333,44 @@ void ScanServer::handleScannerRequest(ScannerList::value_type& s, const HttpServ
         return;
     res = res.substr(1);
     size_t pos = res.find('/');
-    if(pos > res.length() && request.method() == HttpServer::HTTP_DELETE && s.first->cancelJob(res)) {
+    auto job = s.first->getJob(res.substr(0, pos));
+    if (job == nullptr)
+        return;
+    if(pos > res.length() && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "DELETE");
+        response.send();
+        return;
+    } else if(pos > res.length() && request.method() == HttpServer::HTTP_DELETE && s.first->cancelJob(res)) {
         response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
         response.send();
         return;
-    }
-    if(res.substr(pos) == "/NextDocument" && request.method() == HttpServer::HTTP_GET) {
+    } else if(res.substr(pos) == "/NextDocument" && request.method() == HttpServer::HTTP_GET) {
         auto job = s.first->getJob(res.substr(0, pos));
-        if(job) {
-            if(job->isFinished()) {
-                response.setStatus(HttpServer::HTTP_NOT_FOUND);
-                response.send();
+        if(job->isFinished()) {
+            response.setStatus(HttpServer::HTTP_NOT_FOUND);
+            response.send();
+        } else {
+            if(job->beginTransfer()) {
+                response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+                response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, job->documentFormat());
+                response.setHeader(HttpServer::HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+                job->finishTransfer(response.send());
             } else {
-                if(job->beginTransfer()) {
-                    response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
-                    response.setHeader(HttpServer::HTTP_HEADER_CONTENT_TYPE, job->documentFormat());
-                    response.setHeader(HttpServer::HTTP_HEADER_TRANSFER_ENCODING, "chunked");
-                    job->finishTransfer(response.send());
-                } else {
-                    response.setStatus(HttpServer::HTTP_SERVICE_UNAVAILABLE);
-                    response.send();
-                }
+                job->abortTransfer();
+                response.setStatus(HttpServer::HTTP_SERVICE_UNAVAILABLE);
+                response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+                response.send();
             }
-            return;
         }
+        return;
+    } else if(res.substr(pos) == "/NextDocument" && request.method() == HttpServer::HTTP_OPTIONS) {
+        response.setStatus(HttpServer::HTTP_NO_CONTENT);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, mCrossOrigin);
+        response.setHeader(HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, "GET");
+        response.send();
+        return;
     }
 }
 

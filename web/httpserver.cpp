@@ -40,8 +40,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 const char* HttpServer::HTTP_GET = "GET";
 const char* HttpServer::HTTP_POST = "POST";
 const char* HttpServer::HTTP_DELETE = "DELETE";
+const char* HttpServer::HTTP_OPTIONS = "OPTIONS";
 // header field names are compared in lower case
 const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
+const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_EXPOSE_HEADERS = "Access-Control-Expose-Headers";
+const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS = "Access-Control-Allow-Headers";
+const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_REQUEST_METHOD = "Access-Control-Request-Method";
+const char* HttpServer::HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS = "Access-Control-Allow-Methods";
 const char* HttpServer::HTTP_HEADER_CONTENT_TYPE = "content-type";
 const char* HttpServer::HTTP_HEADER_CONTENT_LENGTH = "content-length";
 const char* HttpServer::HTTP_HEADER_LOCATION = "location";

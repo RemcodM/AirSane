@@ -22,4 +22,4 @@ RUN apt-get update && \
 VOLUME ["/etc/sane.d/net.conf"]
 EXPOSE 8090
 
-CMD /usr/local/bin/airsaned --interface=* --listen-port=8090 --access-log= --hotplug=true --mdns-announce=false --local-scanners-only=false --debug=true
+CMD /usr/local/bin/airsaned --interface=* --listen-port=8090 --access-log= --cross-origin=* --hotplug=true --mdns-announce=false --local-scanners-only=false --debug=true
