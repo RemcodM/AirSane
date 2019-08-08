@@ -48,6 +48,13 @@ struct ScanSettingsXml
 {
     ScanSettingsXml(const std::string& s) : xml(s) {}
 
+    bool hasString(const std::string& name) const
+    {
+        std::regex r("<([a-zA-Z]+:" + name + ")>([^<]*)</\\1>");
+        std::smatch m;
+        return std::regex_search(xml, m, r);
+    }
+
     std::string getString(const std::string& name) const
     {   // scan settings xml is simple enough to avoid using a parser
         std::regex r("<([a-zA-Z]+:" + name + ")>([^<]*)</\\1>");
@@ -116,6 +123,7 @@ ScanJob::~ScanJob()
 
 ScanJob &ScanJob::initWithScanSettingsXml(const std::string &xml, bool autoselect)
 {
+    std::clog << xml << std::endl;
     p->init(ScanSettingsXml(xml), autoselect);
     return *this;
 }
@@ -154,27 +162,51 @@ void ScanJob::Private::init(const ScanSettingsXml& settings, bool autoselectForm
 {
     const char* err = nullptr;
 
-    double res_dpi = settings.getNumber("XResolution");
-    if(res_dpi != settings.getNumber("YResolution"))
-        err = PWG_INVALID_SCAN_TICKET;
-    res_dpi = ::floor(res_dpi + 0.5);
+    double res_dpi;
+    if (settings.hasString("XResolution") && settings.hasString("YResolution")) {
+        res_dpi = settings.getNumber("XResolution");
+        if (res_dpi != settings.getNumber("YResolution"))
+            err = PWG_INVALID_SCAN_TICKET;
+        res_dpi = ::floor(res_dpi + 0.5);
+        if (std::isnan(res_dpi)) {
+            err = PWG_INVALID_SCAN_TICKET;
+        }
+    } else {
+        res_dpi = std::max(50, mpScanner->minResDpi());
+    }
 
-    double
+    double left, top, width, height;
+    if (settings.hasString("XOffset") && settings.hasString("YOffset")) {
         left = settings.getNumber("XOffset"),
-        top = settings.getNumber("YOffset"),
+        top = settings.getNumber("YOffset");
+        if(std::isnan(left) || std::isnan(top)) {
+            err = PWG_INVALID_SCAN_TICKET;
+        }
+    } else {
+        left = 0;
+        top = 0;
+    }
+    if (settings.hasString("Width") && settings.hasString("Height")) {
         width = settings.getNumber("Width"),
         height = settings.getNumber("Height");
-
-    if(std::isnan(left) || std::isnan(top) || std::isnan(width)
-            || std::isnan(height) || std::isnan(res_dpi))
-        err = PWG_INVALID_SCAN_TICKET;
+        if(std::isnan(width) || std::isnan(height)) {
+            err = PWG_INVALID_SCAN_TICKET;
+        }
+    } else {
+        width = mpScanner->maxWidthPx300dpi();
+        height = mpScanner->maxHeightPx300dpi();
+    }
 
     double px_per_unit = 1.0;
-    std::string units = settings.getString("ContentRegionUnits");
-    if(units == "escl:ThreeHundredthsOfInches")
-        px_per_unit = res_dpi/300.0;
-    else
-        err = PWG_INVALID_SCAN_TICKET;
+    if (settings.hasString("ContentRegionUnits")) {
+        std::string units = settings.getString("ContentRegionUnits");
+        if (units == "escl:ThreeHundredthsOfInches")
+            px_per_unit = res_dpi / 300.0;
+        else
+            err = PWG_INVALID_SCAN_TICKET;
+    } else {
+        px_per_unit = res_dpi / 300.0;
+    }
 
     mLeft_px = left * px_per_unit;
     mTop_px = top * px_per_unit;
@@ -184,7 +216,12 @@ void ScanJob::Private::init(const ScanSettingsXml& settings, bool autoselectForm
 
     mBitDepth = 0;
 
-    std::string esclColorMode = settings.getString("ColorMode");
+    std::string esclColorMode;
+    if (settings.hasString("ColorMode")) {
+        esclColorMode = settings.getString("ColorMode");
+    } else {
+        esclColorMode = mpScanner->colorModes().front();
+    }
     std::smatch m;
     if(std::regex_match(esclColorMode, m, std::regex("([A-Za-z]+)([0-9]+)"))) {
         assert(m.size() == 3);
